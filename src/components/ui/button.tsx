@@ -16,12 +16,16 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        ios: "bg-ios-blue text-primary-foreground rounded-xl font-semibold shadow-sm hover:opacity-90 active:scale-[0.97] transition-all touch-target",
+        iosSecondary: "bg-secondary text-secondary-foreground rounded-xl font-medium hover:bg-secondary/80 active:scale-[0.97] transition-all touch-target",
+        iosGhost: "text-ios-blue font-medium hover:bg-accent/50 rounded-xl active:scale-[0.97] transition-all touch-target",
       },
       size: {
         default: "h-9 px-4 py-2",
         sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
+        lg: "h-12 rounded-xl px-8 text-base",
         icon: "h-9 w-9",
+        iosIcon: "h-11 w-11 rounded-full",
       },
     },
     defaultVariants: {
