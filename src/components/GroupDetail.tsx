@@ -95,6 +95,7 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
       payerId,
       splitAmong,
       date: new Date().toISOString(),
+      ...(note.trim() ? { note: note.trim() } : {}),
     });
     setExpenses(updated.filter((e) => e.groupId === group.id));
     resetForm();
