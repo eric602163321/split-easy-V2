@@ -57,6 +57,7 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
 
   // form state
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const [category, setCategory] = useState("food");
   const [payerId, setPayerId] = useState("");
   const [splitAmong, setSplitAmong] = useState<string[]>([]);
