@@ -11,35 +11,11 @@ let isGoogleLoaded = false;
  * 1. 動態載入 Google 翻譯蒟蒻 (取代寫在 index.html 的步驟)
  */
 export function initGoogleScripts(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (isGoogleLoaded) {
+  // 因為 index.html 已經載入腳本了，我們只要稍微等個 0.5 秒確保它載入完成就好
+  return new Promise((resolve) => {
+    setTimeout(() => {
       resolve();
-      return;
-    }
-
-    // 載入 Identity 腳本 (處理登入)
-    const gsiScript = document.createElement("script");
-    gsiScript.src = "https://accounts.google.com/gsi/client";
-    gsiScript.async = true;
-    gsiScript.defer = true;
-    
-    // 載入 API 腳本 (處理雲端硬碟)
-    const apiScript = document.createElement("script");
-    apiScript.src = "https://apis.google.com/js/api.js";
-    apiScript.async = true;
-    apiScript.defer = true;
-
-    // 當 API 腳本載入完成時
-    apiScript.onload = () => {
-      isGoogleLoaded = true;
-      resolve();
-    };
-
-    apiScript.onerror = () => reject(new Error("Google Scripts 載入失敗"));
-
-    // 把標籤塞進網頁裡
-    document.head.appendChild(gsiScript);
-    document.head.appendChild(apiScript);
+    }, 500); 
   });
 }
 

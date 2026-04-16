@@ -29,22 +29,6 @@ function App() {
 
   useEffect(() => {
     setIsMounted(true);
-
-    const existingLink = document.querySelector('link[rel="apple-touch-icon"]');
-    if (!existingLink) {
-      const link = document.createElement('link');
-      link.rel = 'apple-touch-icon';
-      link.href = '/pwa-192x192.png'; // 確保這個檔名跟你放在 public 裡的一樣
-      document.head.appendChild(link);
-    }
-
-    const existingManifest = document.querySelector('link[rel="manifest"]');
-    if (!existingManifest) {
-      const manifestLink = document.createElement('link');
-      manifestLink.rel = 'manifest';
-      manifestLink.href = '/manifest.json';
-      document.head.appendChild(manifestLink);
-    }
   }, []);
 
   // 👇 --- 第二步：如果還沒掛載，先回傳背景空殼子，避免 Server/Client 不一致 --- 👇
