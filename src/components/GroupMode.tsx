@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MemberManager } from "@/components/MemberManager";
+import { SettlementStats } from "@/components/SettlementStats";
 import {
   type Member,
   type GroupExpense,
