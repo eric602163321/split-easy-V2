@@ -540,6 +540,9 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
                       <p className="font-medium text-foreground text-sm">
                         {memberEmoji(exp.payerId)} {memberName(exp.payerId)} 付款
                       </p>
+                      {exp.note && (
+                        <p className="text-xs text-muted-foreground truncate">{exp.note}</p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {exp.splitAmong.length}人分擔 · 每人$
                         {Math.round(exp.amount / exp.splitAmong.length)}
