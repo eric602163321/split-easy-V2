@@ -65,6 +65,7 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
 
   const resetForm = () => {
     setAmount("");
+    setNote("");
     setCategory("food");
     setPayerId("");
     setSplitAmong([]);
