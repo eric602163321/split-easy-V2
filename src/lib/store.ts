@@ -10,8 +10,19 @@ export interface Group {
   id: string;
   name: string;
   memberIds: string[];
+  baseCurrency: string;
   createdAt: string;
 }
+
+export const CURRENCIES = [
+  { code: "TWD", symbol: "NT$", label: "新台幣" },
+  { code: "USD", symbol: "$", label: "美元" },
+  { code: "JPY", symbol: "¥", label: "日幣" },
+  { code: "CNY", symbol: "¥", label: "人民幣" },
+  { code: "EUR", symbol: "€", label: "歐元" },
+  { code: "KRW", symbol: "₩", label: "韓元" },
+  { code: "GBP", symbol: "£", label: "英鎊" },
+] as const;
 
 export interface PersonalExpense {
   id: string;
@@ -74,12 +85,13 @@ export function setMembers(m: Member[]) {
 export function getGroups(): Group[] {
   return load(KEYS.groups, []);
 }
-export function addGroup(name: string): Group[] {
+export function addGroup(name: string, baseCurrency = "TWD"): Group[] {
   const list = getGroups();
   list.unshift({
     id: crypto.randomUUID(),
     name: name.trim(),
     memberIds: [],
+    baseCurrency,
     createdAt: new Date().toISOString(),
   });
   save(KEYS.groups, list);

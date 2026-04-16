@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Users } from "lucide-react";
+import { Plus, Trash2, Users, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MemberManager } from "@/components/MemberManager";
 import { GroupDetail } from "@/components/GroupDetail";
@@ -12,6 +12,7 @@ import {
   getMembers,
   setMembers as saveMembers,
   type Member,
+  CURRENCIES,
 } from "@/lib/store";
 
 export function GroupMode() {
@@ -20,14 +21,20 @@ export function GroupMode() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupCurrency, setNewGroupCurrency] = useState("TWD");
+  const [customCurrency, setCustomCurrency] = useState("");
+  const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
 
   const handleAddGroup = () => {
     if (!newGroupName.trim()) return;
-    const updated = addGroup(newGroupName);
+    const currency = customCurrency.trim() || newGroupCurrency;
+    const updated = addGroup(newGroupName, currency);
     setGroups(updated);
     setNewGroupName("");
+    setNewGroupCurrency("TWD");
+    setCustomCurrency("");
     setShowNewGroup(false);
   };
 
@@ -36,7 +43,9 @@ export function GroupMode() {
     setGroups(updated);
   };
 
-  // If a group is selected, show GroupDetail
+  const currencySymbol = (code: string) =>
+    CURRENCIES.find((c) => c.code === code)?.symbol ?? code;
+
   if (selectedGroup) {
     return (
       <GroupDetail
@@ -47,28 +56,20 @@ export function GroupMode() {
     );
   }
 
-  // Group list view
   return (
     <div className="flex flex-col gap-4 pb-4">
-      {/* Global Member Manager */}
       <div className="ios-card p-4">
         <MemberManager members={members} onUpdate={(m) => { saveMembers(m); setMembersState(m); }} />
       </div>
 
-      {/* Group List Header */}
       <div className="flex items-center justify-between">
         <h2 className="font-bold text-foreground text-lg">我的團體</h2>
-        <Button
-          variant="iosGhost"
-          size="sm"
-          onClick={() => setShowNewGroup(!showNewGroup)}
-        >
+        <Button variant="iosGhost" size="sm" onClick={() => setShowNewGroup(!showNewGroup)}>
           <Plus className="w-4 h-4" />
           新增團體
         </Button>
       </div>
 
-      {/* New Group Form */}
       <AnimatePresence>
         {showNewGroup && (
           <motion.div
@@ -87,22 +88,58 @@ export function GroupMode() {
               onKeyDown={(e) => e.key === "Enter" && handleAddGroup()}
               autoFocus
             />
-            <div className="flex gap-3">
-              <Button
-                variant="iosSecondary"
-                size="lg"
-                className="flex-1"
-                onClick={() => { setShowNewGroup(false); setNewGroupName(""); }}
+
+            {/* Currency selector */}
+            <div className="relative">
+              <label className="text-sm text-muted-foreground mb-1 block">預設幣別</label>
+              <button
+                onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                className="w-full h-12 rounded-xl bg-secondary px-4 flex items-center justify-between text-foreground"
               >
+                <span>
+                  {CURRENCIES.find((c) => c.code === newGroupCurrency)
+                    ? `${CURRENCIES.find((c) => c.code === newGroupCurrency)!.symbol} ${CURRENCIES.find((c) => c.code === newGroupCurrency)!.label}`
+                    : newGroupCurrency}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showCurrencyDropdown ? "rotate-180" : ""}`} />
+              </button>
+              <AnimatePresence>
+                {showCurrencyDropdown && (
+                  <motion.div
+                    className="absolute z-10 top-full mt-1 w-full bg-background rounded-xl shadow-lg border border-border overflow-hidden max-h-48 overflow-y-auto"
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                  >
+                    {CURRENCIES.map((c) => (
+                      <button
+                        key={c.code}
+                        onClick={() => { setNewGroupCurrency(c.code); setCustomCurrency(""); setShowCurrencyDropdown(false); }}
+                        className={`w-full px-4 py-3 text-left flex items-center gap-2 hover:bg-accent transition-colors text-sm ${newGroupCurrency === c.code ? "bg-accent" : ""}`}
+                      >
+                        <span className="font-medium text-foreground">{c.symbol}</span>
+                        <span className="text-muted-foreground">{c.label} ({c.code})</span>
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <input
+              type="text"
+              value={customCurrency}
+              onChange={(e) => setCustomCurrency(e.target.value.toUpperCase())}
+              placeholder="或自行輸入幣別代碼（如 THB）"
+              className="h-10 rounded-xl bg-secondary px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-ios-blue transition-all"
+              maxLength={5}
+            />
+
+            <div className="flex gap-3">
+              <Button variant="iosSecondary" size="lg" className="flex-1" onClick={() => { setShowNewGroup(false); setNewGroupName(""); setCustomCurrency(""); }}>
                 取消
               </Button>
-              <Button
-                variant="ios"
-                size="lg"
-                className="flex-1"
-                onClick={handleAddGroup}
-                disabled={!newGroupName.trim()}
-              >
+              <Button variant="ios" size="lg" className="flex-1" onClick={handleAddGroup} disabled={!newGroupName.trim()}>
                 建立
               </Button>
             </div>
@@ -110,7 +147,6 @@ export function GroupMode() {
         )}
       </AnimatePresence>
 
-      {/* Group Cards */}
       <div className="flex flex-col gap-2">
         <AnimatePresence>
           {groups.map((g, i) => (
@@ -129,7 +165,7 @@ export function GroupMode() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-foreground truncate">{g.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {g.memberIds.length} 位成員 · {new Date(g.createdAt).toLocaleDateString("zh-TW")}
+                  {g.memberIds.length} 位成員 · {currencySymbol(g.baseCurrency)} · {new Date(g.createdAt).toLocaleDateString("zh-TW")}
                 </p>
               </div>
               <button
@@ -143,11 +179,7 @@ export function GroupMode() {
         </AnimatePresence>
 
         {groups.length === 0 && (
-          <motion.div
-            className="text-center py-12"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
+          <motion.div className="text-center py-12" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground text-sm">尚無團體</p>
             <p className="text-muted-foreground/60 text-xs mt-1">點擊上方「新增團體」開始</p>
