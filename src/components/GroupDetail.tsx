@@ -57,6 +57,7 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
 
   // form state
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const [category, setCategory] = useState("food");
   const [payerId, setPayerId] = useState("");
   const [splitAmong, setSplitAmong] = useState<string[]>([]);
@@ -64,6 +65,7 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
 
   const resetForm = () => {
     setAmount("");
+    setNote("");
     setCategory("food");
     setPayerId("");
     setSplitAmong([]);
@@ -93,6 +95,7 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
       payerId,
       splitAmong,
       date: new Date().toISOString(),
+      ...(note.trim() ? { note: note.trim() } : {}),
     });
     setExpenses(updated.filter((e) => e.groupId === group.id));
     resetForm();
@@ -289,6 +292,18 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="0"
                     className="w-full h-12 rounded-xl bg-secondary px-4 text-lg font-semibold text-foreground outline-none focus:ring-2 focus:ring-ios-blue transition-all"
+                  />
+                </div>
+
+                {/* Note */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">備註（選填）</label>
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="例：午餐便當、高鐵車票"
+                    className="w-full h-12 rounded-xl bg-secondary px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-ios-blue transition-all"
                   />
                 </div>
 
@@ -525,6 +540,9 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
                       <p className="font-medium text-foreground text-sm">
                         {memberEmoji(exp.payerId)} {memberName(exp.payerId)} 付款
                       </p>
+                      {exp.note && (
+                        <p className="text-xs text-muted-foreground truncate">{exp.note}</p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {exp.splitAmong.length}人分擔 · 每人$
                         {Math.round(exp.amount / exp.splitAmong.length)}

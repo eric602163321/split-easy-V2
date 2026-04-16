@@ -2,28 +2,21 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
-  Utensils,
-  Shirt,
-  Home,
-  Car,
-  PartyPopper,
-  MoreHorizontal,
-  ChevronDown,
-  TrendingUp,
+  Utensils, Shirt, Home, Car, PartyPopper, MoreHorizontal,
+  ChevronDown, TrendingUp,
 } from "lucide-react";
 import type { Member, GroupExpense } from "@/lib/store";
 import { CATEGORIES } from "@/lib/store";
 
 const ICON_MAP = { Utensils, Shirt, Home, Car, PartyPopper, MoreHorizontal } as const;
 
-// Soft iOS-style colors
 const CHART_COLORS = [
-  "oklch(0.72 0.17 30)",   // coral/food
-  "oklch(0.72 0.14 310)",  // purple/clothing
-  "oklch(0.72 0.16 210)",  // blue/housing
-  "oklch(0.72 0.14 150)",  // green/transport
-  "oklch(0.72 0.16 60)",   // amber/entertainment
-  "oklch(0.72 0.10 250)",  // grey-blue/other
+  "oklch(0.72 0.17 30)",
+  "oklch(0.72 0.14 310)",
+  "oklch(0.72 0.16 210)",
+  "oklch(0.72 0.14 150)",
+  "oklch(0.72 0.16 60)",
+  "oklch(0.72 0.10 250)",
 ];
 
 interface Props {
@@ -38,16 +31,22 @@ interface CategorySpend {
   color: string;
 }
 
+interface MemberExpenseItem {
+  expense: GroupExpense;
+  share: number;
+  categoryLabel: string;
+}
+
 interface MemberSpend {
   member: Member;
   total: number;
   byCategory: Record<string, number>;
+  items: MemberExpenseItem[];
 }
 
 function aggregateData(expenses: GroupExpense[], members: Member[]) {
   const totalSpend = expenses.reduce((s, e) => s + e.amount, 0);
 
-  // Category totals (actual cost split, not who paid)
   const catTotals: Record<string, number> = {};
   CATEGORIES.forEach((c) => (catTotals[c.key] = 0));
   expenses.forEach((e) => {
@@ -61,26 +60,27 @@ function aggregateData(expenses: GroupExpense[], members: Member[]) {
     color: CHART_COLORS[i % CHART_COLORS.length],
   })).filter((d) => d.value > 0);
 
-  // Per-member breakdown (actual share, not paid amount)
   const memberSpends: MemberSpend[] = members.map((m) => {
     const byCategory: Record<string, number> = {};
     CATEGORIES.forEach((c) => (byCategory[c.key] = 0));
     let total = 0;
+    const items: MemberExpenseItem[] = [];
 
     expenses.forEach((e) => {
       if (e.splitAmong.includes(m.id)) {
         const share = e.amount / e.splitAmong.length;
         total += share;
         byCategory[e.category] = (byCategory[e.category] || 0) + share;
+        const catLabel = CATEGORIES.find((c) => c.key === e.category)?.label ?? e.category;
+        items.push({ expense: e, share: Math.round(share * 100) / 100, categoryLabel: catLabel });
       }
     });
 
-    // Round
     Object.keys(byCategory).forEach((k) => {
       byCategory[k] = Math.round(byCategory[k] * 100) / 100;
     });
 
-    return { member: m, total: Math.round(total * 100) / 100, byCategory };
+    return { member: m, total: Math.round(total * 100) / 100, byCategory, items };
   });
 
   return { totalSpend, categoryData, memberSpends };
@@ -95,9 +95,7 @@ export function SettlementStats({ expenses, members }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (expenses.length === 0) {
-    return (
-      <p className="text-center text-muted-foreground py-8 text-sm">尚無支出資料</p>
-    );
+    return <p className="text-center text-muted-foreground py-8 text-sm">尚無支出資料</p>;
   }
 
   return (
@@ -140,7 +138,7 @@ export function SettlementStats({ expenses, members }: Props) {
                 dataKey="value"
                 stroke="none"
               >
-                {categoryData.map((entry, i) => (
+                {categoryData.map((entry) => (
                   <Cell key={entry.key} fill={entry.color} />
                 ))}
               </Pie>
@@ -160,14 +158,10 @@ export function SettlementStats({ expenses, members }: Props) {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        {/* Legend */}
         <div className="flex flex-wrap gap-3 justify-center mt-2">
           {categoryData.map((d) => (
             <div key={d.key} className="flex items-center gap-1.5 text-xs">
-              <div
-                className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: d.color }}
-              />
+              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
               <span className="text-muted-foreground">{d.name}</span>
               <span className="font-medium text-foreground">
                 {totalSpend > 0 ? ((d.value / totalSpend) * 100).toFixed(0) : 0}%
@@ -206,14 +200,14 @@ export function SettlementStats({ expenses, members }: Props) {
                     }`}
                   />
                 </button>
-                {/* Expanded detail */}
                 <motion.div
                   initial={false}
                   animate={{ height: isOpen ? "auto" : 0, opacity: isOpen ? 1 : 0 }}
                   transition={{ duration: 0.25, ease: "easeInOut" }}
                   className="overflow-hidden"
                 >
-                  <div className="px-4 pb-3 pl-14 flex flex-col gap-1.5">
+                  <div className="px-4 pb-3 pl-14 flex flex-col gap-2">
+                    {/* Category bars */}
                     {CATEGORIES.map((cat, ci) => {
                       const val = ms.byCategory[cat.key] || 0;
                       if (val === 0) return null;
@@ -236,6 +230,27 @@ export function SettlementStats({ expenses, members }: Props) {
                         </div>
                       );
                     })}
+
+                    {/* Expense items */}
+                    {ms.items.length > 0 && (
+                      <div className="mt-2 border-t border-border/50 pt-2 flex flex-col gap-1.5">
+                        <p className="text-xs text-muted-foreground font-medium">支出明細</p>
+                        {ms.items.map((item) => (
+                          <div key={item.expense.id} className="flex items-start gap-2 text-xs">
+                            <span className="text-muted-foreground shrink-0">{item.categoryLabel}</span>
+                            <div className="flex-1 min-w-0">
+                              {item.expense.note && (
+                                <p className="text-muted-foreground truncate">{item.expense.note}</p>
+                              )}
+                              <p className="text-muted-foreground/60">
+                                {new Date(item.expense.date).toLocaleDateString("zh-TW")}
+                              </p>
+                            </div>
+                            <span className="font-medium text-foreground shrink-0">${item.share}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
                 {idx < memberSpends.length - 1 && (
