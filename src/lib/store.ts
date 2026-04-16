@@ -6,6 +6,13 @@ export interface Member {
   emoji: string;
 }
 
+export interface Group {
+  id: string;
+  name: string;
+  memberIds: string[];
+  createdAt: string;
+}
+
 export interface PersonalExpense {
   id: string;
   amount: number;
@@ -16,6 +23,7 @@ export interface PersonalExpense {
 
 export interface GroupExpense {
   id: string;
+  groupId: string;
   amount: number;
   category: string;
   payerId: string;
@@ -33,6 +41,7 @@ export interface Settlement {
 
 const KEYS = {
   members: "splitapp_members",
+  groups: "splitapp_groups",
   personalExpenses: "splitapp_personal",
   groupExpenses: "splitapp_group",
   settlements: "splitapp_settlements",
@@ -53,6 +62,7 @@ function save<T>(key: string, data: T) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+// Members (global friends list)
 export function getMembers(): Member[] {
   return load(KEYS.members, []);
 }
@@ -60,6 +70,38 @@ export function setMembers(m: Member[]) {
   save(KEYS.members, m);
 }
 
+// Groups
+export function getGroups(): Group[] {
+  return load(KEYS.groups, []);
+}
+export function addGroup(name: string): Group[] {
+  const list = getGroups();
+  list.unshift({
+    id: crypto.randomUUID(),
+    name: name.trim(),
+    memberIds: [],
+    createdAt: new Date().toISOString(),
+  });
+  save(KEYS.groups, list);
+  return list;
+}
+export function deleteGroup(id: string): Group[] {
+  const list = getGroups().filter((g) => g.id !== id);
+  save(KEYS.groups, list);
+  // Also clean up expenses for this group
+  const expenses = getGroupExpenses().filter((e) => e.groupId !== id);
+  save(KEYS.groupExpenses, expenses);
+  return list;
+}
+export function updateGroup(id: string, patch: Partial<Omit<Group, "id">>): Group[] {
+  const list = getGroups().map((g) =>
+    g.id === id ? { ...g, ...patch } : g
+  );
+  save(KEYS.groups, list);
+  return list;
+}
+
+// Personal Expenses
 export function getPersonalExpenses(): PersonalExpense[] {
   return load(KEYS.personalExpenses, []);
 }
@@ -75,8 +117,12 @@ export function deletePersonalExpense(id: string) {
   return list;
 }
 
+// Group Expenses
 export function getGroupExpenses(): GroupExpense[] {
   return load(KEYS.groupExpenses, []);
+}
+export function getGroupExpensesByGroup(groupId: string): GroupExpense[] {
+  return getGroupExpenses().filter((e) => e.groupId === groupId);
 }
 export function addGroupExpense(e: Omit<GroupExpense, "id">) {
   const list = getGroupExpenses();
@@ -90,6 +136,7 @@ export function deleteGroupExpense(id: string) {
   return list;
 }
 
+// Settlements
 export function getSettlements(): Settlement[] {
   return load(KEYS.settlements, []);
 }
@@ -101,7 +148,6 @@ export function calculateSettlements(
   expenses: GroupExpense[],
   members: Member[]
 ): Settlement[] {
-  // Net balance: positive = owed money, negative = owes money
   const balance: Record<string, number> = {};
   members.forEach((m) => (balance[m.id] = 0));
 
