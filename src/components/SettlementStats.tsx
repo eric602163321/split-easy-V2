@@ -27,34 +27,86 @@ interface MemberExpenseItem { expense: GroupExpense; share: number; categoryLabe
 interface MemberSpend { member: Member; total: number; byCategory: Record<string, number>; items: MemberExpenseItem[]; }
 
 function aggregateData(expenses: GroupExpense[], members: Member[], rate: number) {
-  const totalSpend = Math.round(expenses.reduce((s, e) => s + e.amount, 0) * rate * 100) / 100;
-
+  let totalSpend = 0;
   const catTotals: Record<string, number> = {};
   CATEGORIES.forEach((c) => (catTotals[c.key] = 0));
-  expenses.forEach((e) => { catTotals[e.category] = (catTotals[e.category] || 0) + e.amount * rate; });
 
+  // 1. 初始化 Member 的資料容器
+  const memberData: Record<string, MemberSpend> = {};
+  members.forEach((m) => {
+    const byCategory: Record<string, number> = {};
+    CATEGORIES.forEach((c) => (byCategory[c.key] = 0));
+    memberData[m.id] = { member: m, total: 0, byCategory, items: [] };
+  });
+
+  // 2. 遍歷支出，套用 Hash 法精準分配與匯率轉換
+  expenses.forEach((e) => {
+    const amountCents = Math.round(e.amount * 100);
+    const numPeople = e.splitAmong.length;
+    if (numPeople === 0) return;
+
+    const baseShareCents = Math.floor(amountCents / numPeople);
+    const remainderCents = amountCents % numPeople;
+
+    // --- 偽隨機 Hash 邏輯 ---
+    let hash = 0;
+    for (let k = 0; k < e.id.length; k++) {
+      hash = (hash << 5) - hash + e.id.charCodeAt(k);
+      hash |= 0;
+    }
+    const startIndex = Math.abs(hash) % numPeople;
+    
+    const luckyIndices = new Set();
+    for (let k = 0; k < remainderCents; k++) {
+      luckyIndices.add((startIndex + k) % numPeople);
+    }
+    // ------------------------
+
+    const catLabel = CATEGORIES.find((c) => c.key === e.category)?.label ?? e.category;
+    let expenseTotalConverted = 0; // 用來精準追蹤這筆帳單轉換匯率後的總和
+
+    e.splitAmong.forEach((id, index) => {
+      // 算出原始幣別的精準分配 (分)
+      const actualShareCents = baseShareCents + (luckyIndices.has(index) ? 1 : 0);
+      const actualShareOriginal = actualShareCents / 100;
+      
+      // 乘上匯率，並取到小數點後兩位
+      const shareConverted = Math.round(actualShareOriginal * rate * 100) / 100;
+
+      if (memberData[id]) {
+        memberData[id].total += shareConverted;
+        memberData[id].byCategory[e.category] += shareConverted;
+        memberData[id].items.push({ 
+          expense: e, 
+          share: shareConverted, 
+          categoryLabel: catLabel 
+        });
+      }
+      // 累加轉換後的真實金額
+      expenseTotalConverted += shareConverted;
+    });
+
+    // 將「真正分配出去的總和」加到總支出，確保大總和等於各項小總和
+    totalSpend += expenseTotalConverted;
+    catTotals[e.category] += expenseTotalConverted;
+  });
+
+  // 3. 處理 UI 顯示用的陣列與防浮點數溢位
+  totalSpend = Math.round(totalSpend * 100) / 100;
+  
   const categoryData: CategorySpend[] = CATEGORIES.map((cat, i) => ({
-    name: cat.label, key: cat.key,
+    name: cat.label,
+    key: cat.key,
     value: Math.round(catTotals[cat.key] * 100) / 100,
     color: CHART_COLORS[i % CHART_COLORS.length],
   })).filter((d) => d.value > 0);
 
-  const memberSpends: MemberSpend[] = members.map((m) => {
-    const byCategory: Record<string, number> = {};
-    CATEGORIES.forEach((c) => (byCategory[c.key] = 0));
-    let total = 0;
-    const items: MemberExpenseItem[] = [];
-    expenses.forEach((e) => {
-      if (e.splitAmong.includes(m.id)) {
-        const share = (e.amount / e.splitAmong.length) * rate;
-        total += share;
-        byCategory[e.category] = (byCategory[e.category] || 0) + share;
-        const catLabel = CATEGORIES.find((c) => c.key === e.category)?.label ?? e.category;
-        items.push({ expense: e, share: Math.round(share * 100) / 100, categoryLabel: catLabel });
-      }
+  const memberSpends = Object.values(memberData).map(ms => {
+    ms.total = Math.round(ms.total * 100) / 100;
+    Object.keys(ms.byCategory).forEach(k => {
+      ms.byCategory[k] = Math.round(ms.byCategory[k] * 100) / 100;
     });
-    Object.keys(byCategory).forEach((k) => { byCategory[k] = Math.round(byCategory[k] * 100) / 100; });
-    return { member: m, total: Math.round(total * 100) / 100, byCategory, items };
+    return ms;
   });
 
   return { totalSpend, categoryData, memberSpends };
