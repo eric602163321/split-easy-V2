@@ -262,10 +262,16 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
                 <div>
                   <label className="text-sm text-muted-foreground mb-1 block">金額 ({baseCurrencySymbol})</label>
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={(e) => {
+                      // 核心改動 3：軟體濾波 (Software Filter) - 只允許數字和小數點通過
+                      const val = e.target.value;
+                      if (/^\d*\.?\d*$/.test(val)) {
+                        setAmount(val);
+                      }
+                    }}
                     placeholder="0"
                     className="w-full h-12 rounded-xl bg-secondary px-4 text-lg font-semibold text-foreground outline-none focus:ring-2 focus:ring-ios-blue transition-all"
                   />

@@ -290,3 +290,26 @@ export const CATEGORIES = [
 ] as const;
 
 export const MEMBER_EMOJIS = ["😀", "😎", "🤩", "🥳", "😺", "🐶", "🦊", "🐻", "🐼", "🦁", "🐯", "🐸"];
+
+// --- 雲端同步專用的輔助函數 ---
+
+// 1. 把所有本地資料「打包」
+export function exportAllData() {
+  return {
+    members: getMembers(),
+    groups: getGroups(),
+    personalExpenses: getPersonalExpenses(),
+    groupExpenses: getGroupExpenses(),
+    settlements: getSettlements(),
+  };
+}
+
+// 2. 把雲端載下來的資料「拆箱」存進本地
+export function importAllData(data: any) {
+  if (!data) return;
+  if (data.members) localStorage.setItem(KEYS.members, JSON.stringify(data.members));
+  if (data.groups) localStorage.setItem(KEYS.groups, JSON.stringify(data.groups));
+  if (data.personalExpenses) localStorage.setItem(KEYS.personalExpenses, JSON.stringify(data.personalExpenses));
+  if (data.groupExpenses) localStorage.setItem(KEYS.groupExpenses, JSON.stringify(data.groupExpenses));
+  if (data.settlements) localStorage.setItem(KEYS.settlements, JSON.stringify(data.settlements));
+}
