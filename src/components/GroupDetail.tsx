@@ -305,6 +305,7 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
                     placeholder="例：午餐便當、高鐵車票"
                     className="w-full h-12 rounded-xl bg-secondary px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-ios-blue transition-all"
                   />
+                </div>
 
                 {/* Payer Dropdown */}
                 <div className="relative">
