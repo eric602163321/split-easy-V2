@@ -295,6 +295,17 @@ export function GroupDetail({ group, onBack, onGroupUpdate }: Props) {
                   />
                 </div>
 
+                {/* Note */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">備註（選填）</label>
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="例：午餐便當、高鐵車票"
+                    className="w-full h-12 rounded-xl bg-secondary px-4 text-sm text-foreground outline-none focus:ring-2 focus:ring-ios-blue transition-all"
+                  />
+
                 {/* Payer Dropdown */}
                 <div className="relative">
                   <label className="text-sm text-muted-foreground mb-1 block">付款人</label>
