@@ -291,7 +291,7 @@ export function GroupMode() {
 
           {/* Settlement Modal */}
           <AnimatePresence>
-            {showSettle && settlements.length > 0 && (
+            {showSettle && (
               <motion.div
                 className="ios-card p-4 flex flex-col gap-3"
                 initial={{ opacity: 0, y: 20 }}
@@ -299,39 +299,90 @@ export function GroupMode() {
                 exit={{ opacity: 0, y: 20 }}
               >
                 <div className="flex items-center justify-between">
-                  <p className="font-semibold text-foreground text-lg">結算清單</p>
+                  <p className="font-semibold text-foreground text-lg">結算</p>
                   <Button variant="iosGhost" size="sm" onClick={() => setShowSettle(false)}>
                     關閉
                   </Button>
                 </div>
-                {settlements.map((s, i) => (
-                  <motion.div
-                    key={`${s.from}-${s.to}`}
-                    className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                      s.settled ? "bg-ios-green/10" : "bg-secondary"
-                    }`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">
-                        {memberEmoji(s.from)} {memberName(s.from)} → {memberEmoji(s.to)} {memberName(s.to)}
-                      </p>
-                      <p className="text-lg font-bold text-foreground">${s.amount}</p>
-                    </div>
+
+                {/* Tabs */}
+                <div className="flex gap-1 bg-secondary rounded-xl p-1">
+                  {([
+                    { key: "transfers" as const, label: "轉帳清單" },
+                    { key: "stats" as const, label: "統計報表" },
+                  ]).map((tab) => (
                     <button
-                      onClick={() => toggleSettled(i)}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                        s.settled
-                          ? "bg-ios-green text-primary-foreground"
-                          : "bg-secondary border-2 border-border"
+                      key={tab.key}
+                      onClick={() => setSettleTab(tab.key)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                        settleTab === tab.key
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground"
                       }`}
                     >
-                      {s.settled && <Check className="w-5 h-5" />}
+                      {tab.label}
                     </button>
-                  </motion.div>
-                ))}
+                  ))}
+                </div>
+
+                {/* Tab Content */}
+                <AnimatePresence mode="wait">
+                  {settleTab === "transfers" ? (
+                    <motion.div
+                      key="transfers"
+                      className="flex flex-col gap-2"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {settlements.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-4 text-sm">
+                          所有帳目已平衡！🎉
+                        </p>
+                      ) : (
+                        settlements.map((s, i) => (
+                          <motion.div
+                            key={`${s.from}-${s.to}`}
+                            className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                              s.settled ? "bg-ios-green/10" : "bg-secondary"
+                            }`}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.05 }}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground">
+                                {memberEmoji(s.from)} {memberName(s.from)} → {memberEmoji(s.to)} {memberName(s.to)}
+                              </p>
+                              <p className="text-lg font-bold text-foreground">${s.amount}</p>
+                            </div>
+                            <button
+                              onClick={() => toggleSettled(i)}
+                              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                                s.settled
+                                  ? "bg-ios-green text-primary-foreground"
+                                  : "bg-secondary border-2 border-border"
+                              }`}
+                            >
+                              {s.settled && <Check className="w-5 h-5" />}
+                            </button>
+                          </motion.div>
+                        ))
+                      )}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="stats"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <SettlementStats expenses={expenses} members={members} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
           </AnimatePresence>
