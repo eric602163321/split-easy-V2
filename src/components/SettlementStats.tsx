@@ -1,12 +1,9 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import {
-  Utensils, Shirt, Home, Car, PartyPopper, MoreHorizontal,
-  ChevronDown, TrendingUp,
-} from "lucide-react";
+import { Utensils, Shirt, Hop as Home, Car, PartyPopper, MoveHorizontal as MoreHorizontal, ChevronDown, TrendingUp } from "lucide-react";
 import type { Member, GroupExpense } from "@/lib/store";
-import { CATEGORIES } from "@/lib/store";
+import { CATEGORIES, computeSharesCents } from "@/lib/store";
 
 const ICON_MAP = { Utensils, Shirt, Home, Car, PartyPopper, MoreHorizontal } as const;
 
@@ -35,7 +32,6 @@ function aggregateData(expenses: GroupExpense[], members: Member[], rate: number
   const catTotals: Record<string, number> = {};
   CATEGORIES.forEach((c) => (catTotals[c.key] = 0));
 
-  // 1. 初始化 Member 的資料容器
   const memberData: Record<string, MemberSpend> = {};
   members.forEach((m) => {
     const byCategory: Record<string, number> = {};
@@ -43,54 +39,22 @@ function aggregateData(expenses: GroupExpense[], members: Member[], rate: number
     memberData[m.id] = { member: m, total: 0, byCategory, items: [] };
   });
 
-  // 2. 遍歷支出，套用 Hash 法精準分配與匯率轉換
   expenses.forEach((e) => {
-    const amountCents = Math.round(e.amount * 100);
-    const numPeople = e.splitAmong.length;
-    if (numPeople === 0) return;
-
-    const baseShareCents = Math.floor(amountCents / numPeople);
-    const remainderCents = amountCents % numPeople;
-
-    // --- 偽隨機 Hash 邏輯 ---
-    let hash = 0;
-    for (let k = 0; k < e.id.length; k++) {
-      hash = (hash << 5) - hash + e.id.charCodeAt(k);
-      hash |= 0;
-    }
-    const startIndex = Math.abs(hash) % numPeople;
-    
-    const luckyIndices = new Set();
-    for (let k = 0; k < remainderCents; k++) {
-      luckyIndices.add((startIndex + k) % numPeople);
-    }
-    // ------------------------
-
+    if (e.splits.length === 0) return;
     const catLabel = CATEGORIES.find((c) => c.key === e.category)?.label ?? e.category;
-    let expenseTotalConverted = 0; // 用來精準追蹤這筆帳單轉換匯率後的總和
+    const sharesCents = computeSharesCents(e);
+    let expenseTotalConverted = 0;
 
-    e.splitAmong.forEach((id, index) => {
-      // 算出原始幣別的精準分配 (分)
-      const actualShareCents = baseShareCents + (luckyIndices.has(index) ? 1 : 0);
-      const actualShareOriginal = actualShareCents / 100;
-      
-      // 乘上匯率，並取到小數點後兩位
-      const shareConverted = Math.round(actualShareOriginal * rate * 100) / 100;
-
+    Object.entries(sharesCents).forEach(([id, shareCents]) => {
+      const shareConverted = Math.round((shareCents / 100) * rate * 100) / 100;
       if (memberData[id]) {
         memberData[id].total += shareConverted;
         memberData[id].byCategory[e.category] += shareConverted;
-        memberData[id].items.push({ 
-          expense: e, 
-          share: shareConverted, 
-          categoryLabel: catLabel 
-        });
+        memberData[id].items.push({ expense: e, share: shareConverted, categoryLabel: catLabel });
       }
-      // 累加轉換後的真實金額
       expenseTotalConverted += shareConverted;
     });
 
-    // 將「真正分配出去的總和」加到總支出，確保大總和等於各項小總和
     totalSpend += expenseTotalConverted;
     catTotals[e.category] += expenseTotalConverted;
   });

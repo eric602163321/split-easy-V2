@@ -32,13 +32,21 @@ export interface PersonalExpense {
   note?: string;
 }
 
+export interface SplitEntry {
+  memberId: string;
+  weight: number;
+}
+
 export interface GroupExpense {
   id: string;
   groupId: string;
   amount: number;
   category: string;
   payerId: string;
-  splitAmong: string[];
+  splitType: "equal" | "ratio";
+  splits: SplitEntry[];
+  /** @deprecated legacy field kept for backward compat */
+  splitAmong?: string[];
   date: string;
   note?: string;
 }
@@ -129,9 +137,70 @@ export function deletePersonalExpense(id: string) {
   return list;
 }
 
+// Migrate legacy GroupExpense records that only have splitAmong (no splits)
+function migrateLegacyExpense(e: GroupExpense): GroupExpense {
+  if (e.splits && e.splits.length > 0) return e;
+  const among = e.splitAmong ?? [];
+  return {
+    ...e,
+    splitType: e.splitType ?? "equal",
+    splits: among.map((memberId) => ({ memberId, weight: 1 })),
+  };
+}
+
+// Compute each member's share in cents for an expense
+export function computeSharesCents(expense: GroupExpense): Record<string, number> {
+  const result: Record<string, number> = {};
+  const amountCents = Math.round(expense.amount * 100);
+  const splits = expense.splits;
+  if (splits.length === 0) return result;
+
+  const totalWeight = splits.reduce((s, x) => s + x.weight, 0);
+  if (totalWeight <= 0) return result;
+
+  if (expense.splitType === "equal") {
+    const numPeople = splits.length;
+    const baseShareCents = Math.floor(amountCents / numPeople);
+    const remainderCents = amountCents % numPeople;
+
+    let hash = 0;
+    for (let k = 0; k < expense.id.length; k++) {
+      hash = (hash << 5) - hash + expense.id.charCodeAt(k);
+      hash |= 0;
+    }
+    const startIndex = Math.abs(hash) % numPeople;
+    const luckyIndices = new Set<number>();
+    for (let k = 0; k < remainderCents; k++) {
+      luckyIndices.add((startIndex + k) % numPeople);
+    }
+    splits.forEach(({ memberId }, index) => {
+      result[memberId] = baseShareCents + (luckyIndices.has(index) ? 1 : 0);
+    });
+  } else {
+    // Ratio split: largest-remainder method for integer cent accuracy
+    const rawShares = splits.map(({ memberId, weight }) => ({
+      memberId,
+      exact: (weight / totalWeight) * amountCents,
+      floor: Math.floor((weight / totalWeight) * amountCents),
+    }));
+    const allocated = rawShares.reduce((s, x) => s + x.floor, 0);
+    const remainder = amountCents - allocated;
+    const sorted = rawShares
+      .map((x, i) => ({ ...x, frac: x.exact - x.floor, origIdx: i }))
+      .sort((a, b) => b.frac - a.frac);
+    const extras = new Set(sorted.slice(0, remainder).map((x) => x.memberId));
+    rawShares.forEach(({ memberId, floor }) => {
+      result[memberId] = floor + (extras.has(memberId) ? 1 : 0);
+    });
+  }
+
+  return result;
+}
+
 // Group Expenses
 export function getGroupExpenses(): GroupExpense[] {
-  return load(KEYS.groupExpenses, []);
+  const raw = load<GroupExpense[]>(KEYS.groupExpenses, []);
+  return raw.map(migrateLegacyExpense);
 }
 export function getGroupExpensesByGroup(groupId: string): GroupExpense[] {
   return getGroupExpenses().filter((e) => e.groupId === groupId);
@@ -158,40 +227,20 @@ export function setSettlements(s: Settlement[]) {
 
 export function calculateSettlements(
   expenses: GroupExpense[],
-  members: Member[]
+  members: Member[],
 ): Settlement[] {
-  // 將原本的 balance 改為 balanceCents，全面使用「分」來計算
   const balanceCents: Record<string, number> = {};
   members.forEach((m) => (balanceCents[m.id] = 0));
 
   expenses.forEach((e) => {
     const amountCents = Math.round(e.amount * 100);
-    const numPeople = e.splitAmong.length;
-    if (numPeople === 0) return;
-
-    const baseShareCents = Math.floor(amountCents / numPeople);
-    const remainderCents = amountCents % numPeople;
-
-    // --- 偽隨機 Hash 邏輯 ---
-    let hash = 0;
-    for (let k = 0; k < e.id.length; k++) {
-      hash = (hash << 5) - hash + e.id.charCodeAt(k);
-      hash |= 0;
-    }
-    const startIndex = Math.abs(hash) % numPeople;
-    
-    const luckyIndices = new Set();
-    for (let k = 0; k < remainderCents; k++) {
-      luckyIndices.add((startIndex + k) % numPeople);
-    }
-    // ------------------------
+    if (e.splits.length === 0) return;
 
     balanceCents[e.payerId] = (balanceCents[e.payerId] || 0) + amountCents;
 
-    e.splitAmong.forEach((id, index) => {
-      // 根據 Hash 結果決定誰多付那 1 分錢
-      const actualShareCents = baseShareCents + (luckyIndices.has(index) ? 1 : 0);
-      balanceCents[id] = (balanceCents[id] || 0) - actualShareCents;
+    const sharesCents = computeSharesCents(e);
+    Object.entries(sharesCents).forEach(([id, shareCents]) => {
+      balanceCents[id] = (balanceCents[id] || 0) - shareCents;
     });
   });
 
