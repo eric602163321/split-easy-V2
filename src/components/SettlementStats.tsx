@@ -11,8 +11,12 @@ import { CATEGORIES } from "@/lib/store";
 const ICON_MAP = { Utensils, Shirt, Home, Car, PartyPopper, MoreHorizontal } as const;
 
 const CHART_COLORS = [
-  "oklch(0.72 0.17 30)", "oklch(0.72 0.14 310)", "oklch(0.72 0.16 210)",
-  "oklch(0.72 0.14 150)", "oklch(0.72 0.16 60)", "oklch(0.72 0.10 250)",
+  "#B74C40", // 🍎 復古磚紅 - 食
+  "#E2A752", // ☀️ 暖陽鵝黃 - 衣
+  "#4A6E63", // 🌲 經典森林綠 - 住
+  "#6B8D9C", // 🚙 褪色天空藍 - 行
+  "#8A7261", // ☕ 溫潤摩卡棕 - 育樂
+  "#A3A8AC", // 📷 金屬銀灰 - 其他
 ];
 
 interface Props {
