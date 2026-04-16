@@ -39,6 +39,7 @@ export function GroupMode() {
   const [settlements, setSettlementsState] = useState<Settlement[]>(() => getSettlements());
   const [showForm, setShowForm] = useState(false);
   const [showSettle, setShowSettle] = useState(false);
+  const [settleTab, setSettleTab] = useState<"transfers" | "stats">("transfers");
 
   // form state
   const [amount, setAmount] = useState("");
