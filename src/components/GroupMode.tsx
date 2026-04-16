@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // <-- 加入 useEffect
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Users, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,14 @@ import {
 } from "@/lib/store";
 
 export function GroupMode() {
+  // --- 新增：Hydration 錯誤防護盾 ---
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  // --------------------------------
+
   const [groups, setGroups] = useState<Group[]>(() => getGroups());
   const [members, setMembersState] = useState<Member[]>(() => getMembers());
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -24,6 +32,12 @@ export function GroupMode() {
   const [newGroupCurrency, setNewGroupCurrency] = useState("TWD");
   const [customCurrency, setCustomCurrency] = useState("");
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
+
+  // --- 新增：如果還沒掛載完成，先回傳空白畫面，避免 Server/Client 不一致 ---
+  if (!isMounted) {
+    return null;
+  }
+  // ----------------------------------------------------------------------
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) ?? null;
 
