@@ -160,44 +160,72 @@ export function calculateSettlements(
   expenses: GroupExpense[],
   members: Member[]
 ): Settlement[] {
-  const balance: Record<string, number> = {};
-  members.forEach((m) => (balance[m.id] = 0));
+  // 將原本的 balance 改為 balanceCents，全面使用「分」來計算
+  const balanceCents: Record<string, number> = {};
+  members.forEach((m) => (balanceCents[m.id] = 0));
 
   expenses.forEach((e) => {
-    const perPerson = e.amount / e.splitAmong.length;
-    balance[e.payerId] = (balance[e.payerId] || 0) + e.amount;
-    e.splitAmong.forEach((id) => {
-      balance[id] = (balance[id] || 0) - perPerson;
+    const amountCents = Math.round(e.amount * 100);
+    const numPeople = e.splitAmong.length;
+    if (numPeople === 0) return;
+
+    const baseShareCents = Math.floor(amountCents / numPeople);
+    const remainderCents = amountCents % numPeople;
+
+    // --- 偽隨機 Hash 邏輯 ---
+    let hash = 0;
+    for (let k = 0; k < e.id.length; k++) {
+      hash = (hash << 5) - hash + e.id.charCodeAt(k);
+      hash |= 0;
+    }
+    const startIndex = Math.abs(hash) % numPeople;
+    
+    const luckyIndices = new Set();
+    for (let k = 0; k < remainderCents; k++) {
+      luckyIndices.add((startIndex + k) % numPeople);
+    }
+    // ------------------------
+
+    balanceCents[e.payerId] = (balanceCents[e.payerId] || 0) + amountCents;
+
+    e.splitAmong.forEach((id, index) => {
+      // 根據 Hash 結果決定誰多付那 1 分錢
+      const actualShareCents = baseShareCents + (luckyIndices.has(index) ? 1 : 0);
+      balanceCents[id] = (balanceCents[id] || 0) - actualShareCents;
     });
   });
 
-  const debtors: { id: string; amount: number }[] = [];
-  const creditors: { id: string; amount: number }[] = [];
+  const debtors: { id: string; amountCents: number }[] = [];
+  const creditors: { id: string; amountCents: number }[] = [];
 
-  Object.entries(balance).forEach(([id, amt]) => {
-    if (amt < -0.01) debtors.push({ id, amount: -amt });
-    else if (amt > 0.01) creditors.push({ id, amount: amt });
+  Object.entries(balanceCents).forEach(([id, amtCents]) => {
+    if (amtCents < 0) debtors.push({ id, amountCents: -amtCents });
+    else if (amtCents > 0) creditors.push({ id, amountCents: amtCents });
   });
 
-  debtors.sort((a, b) => b.amount - a.amount);
-  creditors.sort((a, b) => b.amount - a.amount);
+  debtors.sort((a, b) => b.amountCents - a.amountCents);
+  creditors.sort((a, b) => b.amountCents - a.amountCents);
 
   const settlements: Settlement[] = [];
   let i = 0, j = 0;
+  
   while (i < debtors.length && j < creditors.length) {
-    const transfer = Math.min(debtors[i].amount, creditors[j].amount);
-    if (transfer > 0.01) {
+    const transferCents = Math.min(debtors[i].amountCents, creditors[j].amountCents);
+    
+    if (transferCents > 0) {
       settlements.push({
         from: debtors[i].id,
         to: creditors[j].id,
-        amount: Math.round(transfer * 100) / 100,
+        amount: transferCents / 100, // 計算完畢，將「分」轉回「元」
         settled: false,
       });
     }
-    debtors[i].amount -= transfer;
-    creditors[j].amount -= transfer;
-    if (debtors[i].amount < 0.01) i++;
-    if (creditors[j].amount < 0.01) j++;
+
+    debtors[i].amountCents -= transferCents;
+    creditors[j].amountCents -= transferCents;
+
+    if (debtors[i].amountCents === 0) i++;
+    if (creditors[j].amountCents === 0) j++;
   }
 
   return settlements;
